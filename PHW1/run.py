@@ -100,8 +100,8 @@ eigenvector136 = np.real_if_close(eigenvector136, tol=1)
 c1 = np.zeros(subset136.shape[0])
 c2 = np.zeros(subset136.shape[0])
 for i in range(subset136.shape[0]):
-    c1[i] = eigenvector136.T[0] @ subset136[i]
-    c2[i] = eigenvector136.T[1] @ subset136[i]
+    c1[i] = eigenvector136.T[0] @ Center136[i]
+    c2[i] = eigenvector136.T[1] @ Center136[i]
     
 plt.scatter(c1, c2, c = tar)
 plt.savefig('./fig/Q4.jpg')

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[3]:
 
 
 import numpy as np
@@ -10,15 +10,15 @@ from sklearn.datasets import fetch_openml
 import matplotlib.pyplot as plt
 
 
-# In[2]:
+# In[5]:
 
 
-mnist = fetch_openml('mnist_784')
+mnist = fetch_openml('mnist_784', as_frame=False)
 mnist.data = np.asarray(mnist['data'], dtype=np.float64)
-os.mkdir('fig') 
+# os.mkdir('fig') 
 
 
-# In[3]:
+# In[6]:
 
 
 # X in run.py
@@ -27,7 +27,7 @@ print(mnist['data'].shape)
 print(mnist['target'].shape)
 
 
-# In[4]:
+# In[7]:
 
 
 def plot(picArr, l, title):
@@ -46,7 +46,7 @@ def findMax(j, i, Max, r):
     return Max
 
 
-# In[5]:
+# In[8]:
 
 
 # X in run.py
@@ -60,19 +60,9 @@ for l in range(9):
 #     plt.axis('off')
 
 
-# In[6]:
-
-
-def plot(picArr, l, title):
-    plt.subplot(191+l)
-    plt.imshow(picArr.reshape(28, 28), 'gray')
-    plt.title(title)
-    plt.axis('off')
-
-
 # ### Part 1: PCA
 
-# In[7]:
+# In[10]:
 
 
 # Q1
@@ -85,7 +75,7 @@ def plot(picArr, l, title):
 plt.imshow(np.mean(mnist.data, axis=0).reshape(28, 28), 'gray')
 
 
-# In[8]:
+# In[11]:
 
 
 # Q2
@@ -172,8 +162,8 @@ eigenvector136 = np.real_if_close(eigenvector136, tol=1)
 c1 = np.zeros(subset136.shape[0])
 c2 = np.zeros(subset136.shape[0])
 for i in range(subset136.shape[0]):
-    c1[i] = eigenvector136.T[0] @ subset136[i]
-    c2[i] = eigenvector136.T[1] @ subset136[i]
+    c1[i] = eigenvector136.T[0] @ Center136[i]
+    c2[i] = eigenvector136.T[1] @ Center136[i]
     
 plt.scatter(c1, c2, c = tar)
 plt.savefig('./fig/Q4.jpg')
@@ -258,7 +248,7 @@ for j in range(200):
 
 # ### Part 3: lasso
 
-# In[16]:
+# In[15]:
 
 
 # Part 3: lasso
@@ -266,6 +256,7 @@ for j in range(200):
 idx8 = (mnist['target'] == '8')
 subset8 = mnist.data[idx8]
 test = subset8[6824]
+subset8 = np.delete(subset8, 6824, 0)
 
 fig = plt.figure(figsize = (15, 3))
 fig.patch.set_facecolor('white')
@@ -328,7 +319,7 @@ lasso.fit(nor[:6824].T, test)
 idx = Max5()
 s = reconstruct()
 plot(s, 3, 'Lasso')
-# plt.savefig('./fig/Q7.jpg')
+plt.savefig('./fig/Q7.jpg')
 
 
 # In[17]:
@@ -350,22 +341,100 @@ for i in range(30):
     S[1][i] = sum(lasso.coef_!=0)
     if i % 4 == 0:
         plot(s, int(i/4+1), '%.1f:%.2f'%(sep[i],S[0][i]))
-# plt.savefig('./fig/Q8.jpg')
+plt.savefig('./fig/Q8.jpg')
 
 
 # In[18]:
 
 
 plt.plot(sep, S[0])
-# plt.savefig('./fig/Q9.jpg')
+plt.savefig('./fig/Q9.jpg')
 
 
 # In[19]:
 
 
 plt.plot(sep, S[1])
-# plt.savefig('./fig/Q10.jpg')
+plt.savefig('./fig/Q10.jpg')
 
+Bonus: Write the lasso function (handcraft) using coordinate descent. 
+    • Show your code fragment in the report.
+    • Explain your implementation in the report.
+# In[67]:
+
+
+def soft_threshold(x, alpha):
+    if x < (-1)*alpha:
+        return (x+alpha)
+    elif x > alpha:
+        return (x-alpha)
+    return 0
+
+def coordinate_descent(X, y, c, alpha, Niter = 10):
+    #X:normalized data    
+    Nsample, Nfeature = X.shape    
+    for i in range(Niter): 
+        for j in range(Nfeature):
+            col_j = X[j].reshape(-1,1)
+            y_hat = X.T @ c
+            x = col_j.T @ (y-y_hat+c[j]*col_j)
+            c[j] = soft_threshold(x, alpha)   
+    return c
+
+
+# In[68]:
+
+
+c = np.ones((nor[:6824].shape[0],1))#init
+c_list = list()
+alpha = np.linspace(0.1, 3, num=30)
+
+for l in alpha:
+    print(l)
+    c = coordinate_descent(nor[:6824],test.reshape(-1,1),c,alpha = l)
+    c_list.append(c)
+
+#Stack into numpy array
+c_lasso = np.stack(c_list)
+c_lasso = c_lasso.reshape(6824, 30)
+
+
+# In[87]:
+
+
+fig = plt.figure(figsize = (15, 3))
+fig.patch.set_facecolor('white')
+plot(test, 0, 'Original')
+
+
+for l in range(30):
+    Max = [-1] * 5
+    idx = [-1] * 5
+    for i in range(6824):
+        for j in range(5):
+            if c_lasso[l][i] > Max[j]:
+                for k in range(4,j,-1):
+                    Max[k] = Max[k-1]
+                    idx[k] = idx[k-1]
+                Max[j] = c_lasso[l][i]
+                idx[j] = i
+                break;
+    s = reconstruct()
+    s = ((s - s.min()) * (1/(s.max() - s.min()) * 255)).astype('uint8')
+    S[0][l] = np.linalg.norm(test - s)
+    S[1][l] = sum(c_lasso[l]!=0)
+    if i % 4 == 0:
+        plot(s, int(i/4+1), '%.1f:%.2f'%(sep[i],S[0][i]))
+plt.savefig('./fig/Q11.jpg')
+
+
+# In[94]:
+
+
+sum(c_lasso[20]!=0)
+
+
+# In[ ]:
 
 
 
