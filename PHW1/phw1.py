@@ -356,10 +356,11 @@ plt.savefig('./fig/Q9.jpg')
 
 plt.plot(sep, S[1])
 plt.savefig('./fig/Q10.jpg')
-
+'''
 Bonus: Write the lasso function (handcraft) using coordinate descent. 
     • Show your code fragment in the report.
     • Explain your implementation in the report.
+'''
 # In[160]:
 
 
