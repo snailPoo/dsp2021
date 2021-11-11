@@ -248,7 +248,7 @@ for j in range(200):
 
 # ### Part 3: lasso
 
-# In[15]:
+# In[151]:
 
 
 # Part 3: lasso
@@ -293,12 +293,12 @@ plot(reconstruct.T, 2, 'OMP')
 #Lasso
 from sklearn.linear_model import Lasso
 
-def Max5():
+def Max5(x):
     Max = [-1] * 5
     idx = [-1] * 5
-    for i in range(6824):
+    for i in range(x.shape[0]):
         for j in range(5):
-            if lasso.coef_[i] > Max[j]:
+            if x[i] > Max[j]:
                 for k in range(4,j,-1):
                     Max[k] = Max[k-1]
                     idx[k] = idx[k-1]
@@ -316,13 +316,13 @@ def reconstruct():
 nor = Center8 / np.linalg.norm(Center8, axis = 1)[:, np.newaxis]
 lasso = Lasso(alpha=1)
 lasso.fit(nor[:6824].T, test)
-idx = Max5()
+idx = Max5(lasso.coef_)
 s = reconstruct()
 plot(s, 3, 'Lasso')
 plt.savefig('./fig/Q7.jpg')
 
 
-# In[17]:
+# In[149]:
 
 
 fig = plt.figure(figsize = (15, 3))
@@ -334,7 +334,7 @@ sep = np.linspace(0.1, 3, num=30)
 for i in range(30):
     lasso = Lasso(alpha=sep[i])
     lasso.fit(nor[:6824].T, test)
-    idx = Max5()
+    idx = Max5(lasso.coef_)
     s = reconstruct()
     s = ((s - s.min()) * (1/(s.max() - s.min()) * 255)).astype('uint8')
     S[0][i] = np.linalg.norm(test - s)
@@ -360,82 +360,44 @@ plt.savefig('./fig/Q10.jpg')
 Bonus: Write the lasso function (handcraft) using coordinate descent. 
     • Show your code fragment in the report.
     • Explain your implementation in the report.
-# In[67]:
+# In[160]:
 
 
-def soft_threshold(x, alpha):
-    if x < (-1)*alpha:
-        return (x+alpha)
-    elif x > alpha:
-        return (x-alpha)
+def soft_threshold(tmp, lamda):
+    if tmp < (-1)*lamda:
+        return (tmp+lamda)
+    elif tmp > lamda:
+        return (tmp-lamda)
     return 0
-
-def coordinate_descent(X, y, c, alpha, Niter = 10):
-    #X:normalized data    
-    Nsample, Nfeature = X.shape    
-    for i in range(Niter): 
-        for j in range(Nfeature):
-            col_j = X[j].reshape(-1,1)
-            y_hat = X.T @ c
-            x = col_j.T @ (y-y_hat+c[j]*col_j)
-            c[j] = soft_threshold(x, alpha)   
-    return c
-
-
-# In[68]:
-
-
-c = np.ones((nor[:6824].shape[0],1))#init
-c_list = list()
-alpha = np.linspace(0.1, 3, num=30)
-
-for l in alpha:
-    print(l)
-    c = coordinate_descent(nor[:6824],test.reshape(-1,1),c,alpha = l)
-    c_list.append(c)
-
-#Stack into numpy array
-c_lasso = np.stack(c_list)
-c_lasso = c_lasso.reshape(6824, 30)
-
-
-# In[87]:
+def coordinate_descent(A, y, x, lamda, nIter):
+    nfeature, nSample = A.shape
+    for k in range(nIter):
+        for i in range(nSample):
+            Ai = A[:,i].reshape(-1,1)
+            tmp = Ai.T @ (y - (A@x) + x[i]*Ai)
+            x[i] = soft_threshold(tmp, lamda)
+    return x
 
 
 fig = plt.figure(figsize = (15, 3))
 fig.patch.set_facecolor('white')
 plot(test, 0, 'Original')
 
+x_list = list()
+lamda = np.linspace(0.1, 3, num=30)
 
-for l in range(30):
-    Max = [-1] * 5
-    idx = [-1] * 5
-    for i in range(6824):
-        for j in range(5):
-            if c_lasso[l][i] > Max[j]:
-                for k in range(4,j,-1):
-                    Max[k] = Max[k-1]
-                    idx[k] = idx[k-1]
-                Max[j] = c_lasso[l][i]
-                idx[j] = i
-                break;
-    s = reconstruct()
-    s = ((s - s.min()) * (1/(s.max() - s.min()) * 255)).astype('uint8')
-    S[0][l] = np.linalg.norm(test - s)
-    S[1][l] = sum(c_lasso[l]!=0)
+A = nor[:6824].T      # A:784x6824
+y = test.reshape(-1,1)# y:784x1
+x = np.ones((6824, 1))# x:6824x1
+
+for i in range(30):
+    x = coordinate_descent(A, y, x, lamda[i], 1)
+    x_list.append(x.flatten())
     if i % 4 == 0:
-        plot(s, int(i/4+1), '%.1f:%.2f'%(sep[i],S[0][i]))
-plt.savefig('./fig/Q11.jpg')
-
-
-# In[94]:
-
-
-sum(c_lasso[20]!=0)
-
-
-# In[ ]:
-
-
-
+        idx = Max5(x)
+        s = np.zeros(784)
+        for j in range(5):
+            s += subset8[idx[j]]*x[idx[j]]
+        s = ((s - s.min()) * (1/(s.max() - s.min()) * 255)).astype('uint8')
+        plot(s, int(i/4+1), '%.1f:%.2f'%(lamda[i], np.linalg.norm(test - s)))
 
